@@ -338,6 +338,12 @@ dadaFs[[3]]
     ## Key parameters: OMEGA_A = 1e-40, OMEGA_C = 1e-40, BAND_SIZE = 16
 
 ``` r
+#les reads sont les seq brutes qui ont ete generes a partir de l'echantillon
+#les seq uniques sont les seq semi brutes qui ont ete trouve apres l'elimination des seq repetes et les seq qui n'ont pas vraiement de sens?comme par ex les seq qui contiennent des N
+#les variants sont les seq fournies par dada2 apres la correction des seq qui ont ete pas bien sequencé donc apres elimination des erreurs de sequecage
+```
+
+``` r
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
 ```
 
@@ -382,6 +388,7 @@ mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
     ## 4269 paired-reads (in 20 unique pairings) successfully merged out of 4281 (in 28 pairings) input.
 
 ``` r
+#cette instruction et pour merger les sequences R1 et R2 pour obtenir les sequences finales completes
 head(mergers[[3]])
 ```
 
@@ -408,7 +415,11 @@ dim(seqtab)
     ## [1]  20 293
 
 ``` r
-table(nchar(getSequences(seqtab)))
+#pourquoi ca donne 293 seq uniques?
+```
+
+``` r
+table(nchar(getSequences(seqtab))) #cette instru nous donne les diff longeurs des seq et combien de seq ont une longeur specifique
 ```
 
     ## 
@@ -416,16 +427,27 @@ table(nchar(getSequences(seqtab)))
     ##   1  88 196   6   2
 
 ``` r
-seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+#1e seq est de longeur de 251
+# 88 ont une longuer de 252 
+#196 ont une longeur de 253
+```
+
+``` r
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)  #pour eliminer les chimere
 ```
 
     ## Identified 61 bimeras out of 293 input sequences.
 
 ``` r
+#les chimere sont les seq qui ont ete merger incorrectement
 dim(seqtab.nochim)
 ```
 
     ## [1]  20 232
+
+``` r
+#print(seqtab.nochim)
+```
 
 ``` r
 sum(seqtab.nochim)/sum(seqtab)
@@ -450,7 +472,15 @@ head(track)
     ## F3D144  4827     4312      4151      4228   3646    3507
 
 ``` r
+#ce tableau montre l'abondance totale des seq unique genre les seq uniques qui sont bien et qui sont repetees
+#selon chatgpt Abondance totale vs. séquences uniques : La table track montre les nombres totaux de séquences (ou d’abondances de séquences) à chaque étape. En revanche, lorsque vous exécutez nchar(getSequences(seqtab)), cela vous donne des informations sur les séquences uniques (par leur longueur), mais ne reflète pas directement l'abondance totale de chaque séquence dans les échantillons
+```
+
+``` r
 taxa <- assignTaxonomy(seqtab.nochim, "/home/rstudio/essai2/silva_nr_v132_train_set.fa.gz?download=1", multithread=TRUE)
+
+#Cette fonction de DADA2 permet d'assigner une classification taxonomique à chaque séquence dans le tableau de séquences (ici seqtab.nochim), après suppression des séquences chimériques. Elle utilise une base de données de référence pour faire correspondre chaque séquence aux catégories taxonomiques telles que le domaine, le phylum, la classe, l'ordre, la famille, et le genre (voire l'espèce si disponible).
+#multithread=TRUE : Permet d'effectuer l'assignation taxonomique en parallèle (sur plusieurs cœurs du processeur), ce qui accélère le processus.
 ```
 
 ``` r
@@ -483,12 +513,28 @@ cat("DADA2 inferred", length(unqs.mock), "sample sequences present in the Mock c
     ## DADA2 inferred 20 sample sequences present in the Mock community.
 
 ``` r
+#Mock" fait référence à un échantillon témoin ou contrôle, souvent utilisé pour valider la précision de l'analyse. Un "Mock community" est une communauté microbienne artificiellement composée de plusieurs espèces dont la composition est connue.
+#La sortie unqs.mock est un vecteur qui contient le nombre d'abondances de chaque séquence (ASV, Amplicon Sequence Variant) dans l'échantillon Mock.
+#unqs.mock[unqs.mock > 0] : Ce filtre sélectionne uniquement les séquences présentes dans le Mock (c'est-à-dire les séquences avec une abondance supérieure à 0). Cela signifie que les séquences absentes du Mock community sont exclues.
+
+#sort(..., decreasing = TRUE) : Trie les séquences sélectionnées par ordre décroissant d'abondance. Cela permet de voir les séquences les plus abondantes en premier.
+```
+
+``` r
 mock.ref <- getSequences(file.path(path, "HMP_MOCK.v35.fasta"))
 match.ref <- sum(sapply(names(unqs.mock), function(x) any(grepl(x, mock.ref))))
 cat("Of those,", sum(match.ref), "were exact matches to the expected reference sequences.\n")
 ```
 
     ## Of those, 20 were exact matches to the expected reference sequences.
+
+``` r
+#getSequences() : Cette fonction extrait les séquences nucléotidiques d'un fichier FASTA.
+
+#file.path(path, "HMP_MOCK.v35.fasta") : Spécifie le chemin du fichier FASTA contenant les séquences de référence du Mock community, ici appelé "HMP_MOCK.v35.fasta". Le fichier FASTA contient les séquences que vous attendez dans l'échantillon Mock.
+
+#mock.ref : Ce vecteur contiendra toutes les séquences de référence du Mock community, qui seront ensuite comparées aux séquences trouvées par DADA2
+```
 
 ``` r
 library(phyloseq); packageVersion("phyloseq")
@@ -575,13 +621,36 @@ samdf <- data.frame(Subject=subject, Gender=gender, Day=day)
 samdf$When <- "Early"
 samdf$When[samdf$Day>100] <- "Late"
 rownames(samdf) <- samples.out
+print(samdf)
 ```
+
+    ##        Subject Gender Day  When
+    ## F3D0         3      F   0 Early
+    ## F3D1         3      F   1 Early
+    ## F3D141       3      F 141  Late
+    ## F3D142       3      F 142  Late
+    ## F3D143       3      F 143  Late
+    ## F3D144       3      F 144  Late
+    ## F3D145       3      F 145  Late
+    ## F3D146       3      F 146  Late
+    ## F3D147       3      F 147  Late
+    ## F3D148       3      F 148  Late
+    ## F3D149       3      F 149  Late
+    ## F3D150       3      F 150  Late
+    ## F3D2         3      F   2 Early
+    ## F3D3         3      F   3 Early
+    ## F3D5         3      F   5 Early
+    ## F3D6         3      F   6 Early
+    ## F3D7         3      F   7 Early
+    ## F3D8         3      F   8 Early
+    ## F3D9         3      F   9 Early
+    ## Mock       ock      M  NA Early
 
 ``` r
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
                sample_data(samdf), 
                tax_table(taxa))
-ps <- prune_samples(sample_names(ps) != "Mock", ps)
+ps <- prune_samples(sample_names(ps) != "Mock", ps)  #Cela signifie que toutes les informations relatives à l'échantillon Mock (qui est souvent utilisé pour le contrôle de qualité) seront exclues de l'analyse.
 ```
 
 ``` r
@@ -617,34 +686,33 @@ ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
 ```
 
     ## Run 0 stress 0.08043117 
-    ## Run 1 stress 0.08616061 
-    ## Run 2 stress 0.08076337 
-    ## ... Procrustes: rmse 0.0104353  max resid 0.03210395 
-    ## Run 3 stress 0.08616061 
-    ## Run 4 stress 0.1297738 
-    ## Run 5 stress 0.1228545 
-    ## Run 6 stress 0.1320349 
-    ## Run 7 stress 0.09477231 
-    ## Run 8 stress 0.09477224 
-    ## Run 9 stress 0.09477205 
+    ## Run 1 stress 0.1010631 
+    ## Run 2 stress 0.08616061 
+    ## Run 3 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01053627  max resid 0.0324329 
+    ## Run 4 stress 0.1212044 
+    ## Run 5 stress 0.0807634 
+    ## ... Procrustes: rmse 0.01056663  max resid 0.03253212 
+    ## Run 6 stress 0.1212044 
+    ## Run 7 stress 0.1256441 
+    ## Run 8 stress 0.0947711 
+    ## Run 9 stress 0.08076336 
+    ## ... Procrustes: rmse 0.01048422  max resid 0.03226307 
     ## Run 10 stress 0.08616061 
-    ## Run 11 stress 0.1212044 
-    ## Run 12 stress 0.08076339 
-    ## ... Procrustes: rmse 0.01052152  max resid 0.03238603 
-    ## Run 13 stress 0.0807634 
-    ## ... Procrustes: rmse 0.01056351  max resid 0.03252163 
-    ## Run 14 stress 0.08616061 
-    ## Run 15 stress 0.09477114 
-    ## Run 16 stress 0.08076337 
-    ## ... Procrustes: rmse 0.0105046  max resid 0.03232987 
-    ## Run 17 stress 0.09477173 
-    ## Run 18 stress 0.09477198 
-    ## Run 19 stress 0.08076338 
-    ## ... Procrustes: rmse 0.01053153  max resid 0.03241764 
-    ## Run 20 stress 0.08616061 
+    ## Run 11 stress 0.08616061 
+    ## Run 12 stress 0.08076341 
+    ## ... Procrustes: rmse 0.01057325  max resid 0.03255363 
+    ## Run 13 stress 0.09477116 
+    ## Run 14 stress 0.09477099 
+    ## Run 15 stress 0.08616061 
+    ## Run 16 stress 0.09477211 
+    ## Run 17 stress 0.1212044 
+    ## Run 18 stress 0.1010633 
+    ## Run 19 stress 0.1228545 
+    ## Run 20 stress 0.0947722 
     ## *** Best solution was not repeated -- monoMDS stopping criteria:
-    ##     16: stress ratio > sratmax
-    ##      4: scale factor of the gradient < sfgrmin
+    ##     17: stress ratio > sratmax
+    ##      3: scale factor of the gradient < sfgrmin
 
 ``` r
 plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
