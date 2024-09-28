@@ -22,7 +22,7 @@ packageVersion("dada2")
     ## [1] '1.28.0'
 
 ``` r
-path<- "/home/rstudio/essai2/MiSeq_SOP"
+path<- "/home/rstudio/essai2/MiSeq_SOP"   #pour mettre les noms de fichiers dans une variable pour pouvoir l'acceder facilement apres
 list.files(path)
 ```
 
@@ -53,6 +53,10 @@ list.files(path)
 ``` r
 fnFs <- sort(list.files(path, pattern="_R1_001.fastq", full.names = TRUE))
 fnRs <- sort(list.files(path, pattern="_R2_001.fastq", full.names = TRUE))
+#sort = pour trier les fichiers dans un ordre alphabetique
+#list files= liste les fichiers dans le chemin path
+#pattern="_R1_001.fastq" pour ne selectionner que les fichiers qui sont nommés "_R1_001.fastq"
+#full.names=true pour donner le chemin complet
 print(fnFs)
 ```
 
@@ -104,6 +108,10 @@ print(fnRs)
 
 ``` r
 sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+
+#basename= extraction du nom de fichier sans le chemin complet depuis la variable Fnfs qui contient les fichiers avec leur chemins
+#strsplit(,'_')= pour diviser les noms des fichiers et ne prendre que la partie qui est en amont de '_'
+#sapply(,[,1)= applique la fonction d'extraction ([ ) pour prendre la premiere partie de chaque nom de fichiers avant le '_'
 print(sample.names)
 ```
 
@@ -122,6 +130,11 @@ plotQualityProfile(fnRs[1:20])
 ```
 
 ![](tuto-complet_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->
+
+``` r
+#pour visualiser la qualité de lecture des fichiers Fastq
+#ca va generer une visualisation de la qualité des sequences pour ces fichiers et cela est utile pour determiner les positions ou la qulaite baisse afin de decider d'ou commencer le trimming des lectures
+```
 
 ``` r
 filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
@@ -218,9 +231,34 @@ print(filtRs)
     ##   "/home/rstudio/essai2/MiSeq_SOP/filtered/Mock_R_filt.fastq.gz"
 
 ``` r
+#ici on est juste en train de prparer les fichiers de sortie pour les lectures forward et reverse apres le filtrage des sequence
+#file.path(path,"filtered",)= cest pour creer un chemin pour les fichiers de sortie dans un sous dossier appellé filtered
+#paste0(sample.names, "_F_filt.fastq.gz") cela va creer les noms de fichiers de sortie pour chaque echantillon en ajoutant le suffixe _F_filt.fastq.gz pour les lectures forward et meme truc pour les fichiers reverse
+#names(filtFs)<- sample.names cette etape va associer les noms des echantillons aux noms des fichiers filtres respectifs
+#avant filtrage  F3D0
+#apres filtrage F3D0 
+  "/home/rstudio/essai2/MiSeq_SOP/filtered/F3D0_F_filt.fastq.gz" 
+```
+
+    ## [1] "/home/rstudio/essai2/MiSeq_SOP/filtered/F3D0_F_filt.fastq.gz"
+
+``` r
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160),
               maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
               compress=TRUE, multithread=TRUE)
+#filterAndTrim() fonction de dada2 qui va filtrer et tronquer les sequences forward et reverse selon leurs qualite
+#fnFs,filtFs = les chemins vers les fichiers de sequence forward avant et apres le filtrage
+#fnRs,filtRs les chemins vers les fichiers de sequences reverse avant et apres le filtrage
+#truncLen=c(240,160)= specifie la longeur a laquelle on veut tronquer les sequences ,,,,, pour les sequence forwrd elles vont etre tronquer a 240 bases et pour les sequences reverse elles vont etre tronquer a 140 bases 
+#cela va aider a eliminer les bases de faible qualité
+#maxN=0 va eliminer toutes les sequences qui contiennent des nucleotides ambigues N donc on va se debarasser de toutes les sequences qui contiennent un N
+#maxEE=c(2,2)= cela va definier le nombre maximum d'erreur attendes (maximum number of expected errors)
+#pour les sequence forwrad et reverse le seuil d'erreurs est fixe a 2 erreurs max donc si la sequence contient plus q"une erreur elle va etre filtré
+#truncQ=2 cette instruction va tronquer les sequences si la qualité moyenne descend en dessous de 2 vers la fin
+#rm.phix= va retirer toutes les seqeunces de PhiX qui est un controle commun dans les donnes de sequencage illumina
+#compress=TRUE pour compresser les fichiers en formar .fastq.gz pour economiser de l'espace
+#multithread=True pour utiliser plusieurs serveurs a la fois
+
 print(out)
 ```
 
@@ -265,6 +303,10 @@ errF <- learnErrors(filtFs, multithread=TRUE)
     ## 33514080 total bases in 139642 reads from 20 samples will be used for learning the error rates.
 
 ``` r
+#learnErrors est la fonction de dada2 qui va generer un modele d'erreurs a partir des seqeunces filtrees (contenues dans la variable filtFs)
+```
+
+``` r
 errR <- learnErrors(filtRs, multithread=TRUE)
 ```
 
@@ -278,6 +320,28 @@ plotErrors(errF, nominalQ=TRUE)
     ## Transformation introduced infinite values in continuous y-axis
 
 ![](tuto-complet_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+
+``` r
+#cette fonction va nous donner une visualisation de modele d'erreurs appris par le dada2 apartir des sequences filtrees
+
+#courbe rouge= indique le taux d'erreurs attendus en fonction des scores de qulaité 
+
+
+#points noirs= represente le taux d'erreurs observe dans les donnees filtrés ,,, chaque point represente un taux d'erreur pour une certaine base et son qscore,,, la taux d'erreur observé est la proportion de bases mal appeles par rapport aux bases réellement sequencées  #ces points representent les erreurs effectivement rencontrées dans les lectures filtrés
+
+
+#courbe noir= indique le modele d'erreur appris a partir des donnes,, cette courbe modelise la probabilté qu"une base soit mal placée en fonction de Qscore, ce modele doit suivre les points noirs 
+
+
+#si le graphique montre une bonne correspondance entre les erreurs observées et le modele appris ca veut dire quil'est bien
+
+plotErrors(errR, nominalQ=TRUE)
+```
+
+    ## Warning: Transformation introduced infinite values in continuous y-axis
+    ## Transformation introduced infinite values in continuous y-axis
+
+![](tuto-complet_files/figure-gfm/unnamed-chunk-12-2.png)<!-- -->
 
 ``` r
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
@@ -303,6 +367,14 @@ dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
     ## Sample 18 - 4871 reads in 1382 unique sequences.
     ## Sample 19 - 6504 reads in 1709 unique sequences.
     ## Sample 20 - 4314 reads in 897 unique sequences.
+
+``` r
+#cette fonction va effectuer la correction des seq filtrees en utilisant le modele d'erreurs 
+#filtFs cela est pr appler les sequences filtrees
+#err=errF et cela fait reference au modele d'erreurs que a dada2 a deja genere avec learnerrors
+###en passant le modele d'erreur a la fonction dada cela va permettre a dada2 de corriger les errurs de sequencage en se basant sur ce modele
+#la fonction dada()= identifie les seq d'origine a partir des seq filtrees en se basant sur le modele d'erreurs et pour chaque seq elle va tenter de determiner ce qui est seq reelle et ce qui est erreur de sequencage
+```
 
 ``` r
 dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
@@ -336,6 +408,18 @@ dadaFs[[3]]
     ## dada-class: object describing DADA2 denoising results
     ## 97 sequence variants were inferred from 1477 input unique sequences.
     ## Key parameters: OMEGA_A = 1e-40, OMEGA_C = 1e-40, BAND_SIZE = 16
+
+``` r
+#cette instruction va nous afficher le 3eme element de la table dadaFs qui contient les resultats de debruitage
+
+#resultats:
+# dadaclass= notre objet est une instance de la classe dada qui est utilise par le DADA2 pour stocker le resultats de debruitage
+#97 sequences variantes veut dire que dadA2 a trouvé 97 sequences variantes qu'il considere comme des representation biologiques réelles
+#1477 input sequences cela veut dire que dada2 a recu 1477 seqeunces uniques comme entree avant le debruitage
+
+#OMEGA_A = 1e-40 et #OMEGA_C = 1e-40 ces valeurs representent le taux d'erreurs estime pour les substitustions de A et C dans les sequences les valeurs sont tres faibles donc dada2 estime que ces erreurs sont tres rares
+#cela indique que le modele d'erreur a ete ajuste pour considerer que les erruers de substitutions des bases A et C sont peu probables
+```
 
 ``` r
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
@@ -382,7 +466,11 @@ mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
     ## 4269 paired-reads (in 20 unique pairings) successfully merged out of 4281 (in 28 pairings) input.
 
 ``` r
-#cette instruction et pour merger les sequences R1 et R2 pour obtenir les sequences finales completes
+#cette instruction et pour fusionner les sequences R1 et R2 pour obtenir les sequences finales completes
+#cette fonction utilise un algorithme basé sur le chevauchement pour creer des sequences completes
+#elle calcule le nombre de seq qui ont ete fusionne avec succes et celles qui n'ont pas ete fusionnes
+#les lectures qui ne se chevauchent pas correctement ne seront pas fusionnes
+#resultats: 6540 paired-reads (in 107 unique pairings) successfully merged out of 6891 (in 197 pairings) input.>>> 6540/6891 paires de lectures cad forward et reverse ont ete mergées correctement,,,, et 107 varaints cad combinaisons qui ont ete obtenues a la fin de fusion 
 head(mergers[[3]])
 ```
 
@@ -402,7 +490,7 @@ head(mergers[[3]])
     ## 6       321       5       3    147         0      0      2   TRUE
 
 ``` r
-seqtab <- makeSequenceTable(mergers)
+seqtab <- makeSequenceTable(mergers)  #pour creer une table des sequences fusionnes
 dim(seqtab)
 ```
 
@@ -417,6 +505,13 @@ table(nchar(getSequences(seqtab)))
     ##   1  88 196   6   2
 
 ``` r
+#getSequences() pour extraire toutes les seq uniques de notre tableau de sequences et elle renvoie un vecteur contenant toutes les sequences sous forme de chaine de caracteres
+#nchar() cette fonction calcule la taille de chaque sequence dans le vecteur obtenu par getSequences et elle renvoie un vecteur numerique
+#table() cette fonction va creer une table de frequence qui va contenir le nombre de seq qui ont une certaine longeur donc elle va compter le nombre de seq selon leur taille
+#une sequence est de taille 251,,, 88 sequences sont de taille de 252
+```
+
+``` r
 seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)  #pour eliminer les chimere
 ```
 
@@ -424,6 +519,11 @@ seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE
 
 ``` r
 #les chimere sont les seq qui ont ete merger incorrectement
+#seqtab contient toutes les seq uniques(variantes
+#method=consensus >>> pour specifier que la methode consensus sera utiliser pour eliminer les chimeres
+#comment cet algorithme reconnait les chimeres? il va en prmier lieu tente de reconstruire des chimeres de ref en se basant sur les seq parentales puis il va comparer ces chimeres avec les sequences obtenues apres fusion et si une sequence est similaire a la seq chimere de ref il va la considerer comme chimere et l'eliminer
+#cet algorithme va utiliser donc une methode de consensus pour determiner si la seq suspecte correspond a une chimere en verifiant la presence de segements de sequences parentales
+#verbose=TRUE pour afficer les messages detailles pendant le traitement
 dim(seqtab.nochim)
 ```
 
@@ -440,9 +540,27 @@ sum(seqtab.nochim)/sum(seqtab)
     ## [1] 0.9640374
 
 ``` r
+#96.40% des seq ont ete conserve apres l'elimination des chimeres
+```
+
+``` r
 getN <- function(x) sum(getUniques(x))
+#avec cette fonction on va prendre un objet de DADA2 (dans ce cas je pense c'est seqtab.nochim) et elle va calculer le nombre total de sequences uniques et sum(getUniques(x)) va calculer le nbr d'occurrence des seq uniques dans ce tableau
+
 track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+#cbind va combiner nos vecteurs et matrices en colonnes et dans ce vas elle va assembler tout les resultats en un seul tableau
+#out contient les seq d'entree
+#sapply(dadaFs, getN) va appliquer la fonction getN sur chaque element de dadaFs produisant un vecteur qui comprend lenombre de seq sebruitetées
+#sapply(mergers, getN) calcule le nbr de seq obtenues apres la fusion des forwards et des reverse
+#rowSums(seqtab.nochim)) calcule le total des occurrences de sequences uniques apres supression des chimeres
+
 colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+#input >>> le nombre de sequences d'entree bruutes
+#filtered >>> le nombre de sequences apres filtrages
+#denoisedF >> nombre de sequences debruites forwared
+#denoisedR >>> nombre de seq debruites reverse
+#merged >>> nombre de seq fusionnes avec succes
+#nochim >>> nombre de seq apres elimination des chimeres
 rownames(track) <- sample.names
 head(track)
 ```
@@ -457,11 +575,14 @@ head(track)
 
 ``` r
 taxa <- assignTaxonomy(seqtab.nochim, "/home/rstudio/essai2/silva_nr_v132_train_set.fa.gz?download=1", multithread=TRUE)
+#le chemin mentionne fait reference a un fichier de ref qui contient les sequences d'adn avec leurs identites taxonomiques associes et dans ce cas il s'agit de la base de donnes silva version 132 
+#assignTaxonomy >>> cette fonction va commencer par faire un alignement de notre sequences contenues dans la table seqtab.nochim avec les seq contenues dans la base de donnes de ref SILVA
+#Puis elle va atttribuer des identites taxonomiques selon l'alignement
 ```
 
 ``` r
 taxa.print <- taxa # Removing sequence rownames for display only
-rownames(taxa.print) <- NULL
+rownames(taxa.print) <- NULL   #suppression des identifiants des seq pour une meilleure visualisation de tableau
 head(taxa.print)
 ```
 
@@ -482,15 +603,26 @@ head(taxa.print)
 
 ``` r
 unqs.mock <- seqtab.nochim["Mock",]
-unqs.mock <- sort(unqs.mock[unqs.mock>0], decreasing=TRUE) # Drop ASVs absent in the Mock
+#cette ligne va extraire toutes les seq uniques qui sont qssocies a l'echantillon nommé 'Mock' donc le vecteur va contenir le nombre d'occurence des seq unique dans cet echantillon
+unqs.mock <- sort(unqs.mock[unqs.mock>0], decreasing=TRUE) 
+#on va faire une sorte de tri? pour eliminer toutes les seq qui ne sont pas presentes dans l'echantillon et de conserver seulement les seq qui sont presentes dans cet echnatillon 
+#sort va trier les sequences uniques selon leur nbr d'occurrence et donc selon leur abondance par ordre decroissant
+
 cat("DADA2 inferred", length(unqs.mock), "sample sequences present in the Mock community.\n")
 ```
 
     ## DADA2 inferred 20 sample sequences present in the Mock community.
 
 ``` r
+#cat est pour afficher les messages informatifs dans la console et length() donne combien de seq uniques ont ete recuperees de l'echantillon mock
+```
+
+``` r
 mock.ref <- getSequences(file.path(path, "HMP_MOCK.v35.fasta"))
+#exctraction des seq contenues dans le fichier HMP MOCK 
+#mock.ref va contenir des seq de ref pour les seq mock
 match.ref <- sum(sapply(names(unqs.mock), function(x) any(grepl(x, mock.ref))))
+#comparaison entre les unqs mock et les mockref puis il additionne le nombre total des seq uniques dans unqs mock qui ont ete trouvées dans mockref
 cat("Of those,", sum(match.ref), "were exact matches to the expected reference sequences.\n")
 ```
 
@@ -573,13 +705,31 @@ theme_set(theme_bw())
 
 ``` r
 samples.out <- rownames(seqtab.nochim)
+#extraction des noms des echnatillons a partir de tableau seqtab.nochim
+
 subject <- sapply(strsplit(samples.out, "D"), `[`, 1)
+#on va diviser le nom de chaque echantillon par la lettre D 
+#sapply va appliquer ces instructions de chaque element de samples.out
+
 gender <- substr(subject,1,1)
+#extraction du premier caractere de chaque nom d'echantillon pour detrminer le genre 
+
 subject <- substr(subject,2,999)
+#ici on va eliminer le prmier caracter de chaque nom de fichier et ne garder que le numero
+
 day <- as.integer(sapply(strsplit(samples.out, "D"), `[`, 2))
+# cette instruction va extraire la deuxieme partie donc la partie qui vient apres le D et cette deuxieme partie va etre le nombre de jours
+
+
 samdf <- data.frame(Subject=subject, Gender=gender, Day=day)
+#creation d'une dataframe contenant le sujet le genre et le jour
+
 samdf$When <- "Early"
+#on crée une colonne When et initialement la colonne when de samdf ne contient que early  
+
 samdf$When[samdf$Day>100] <- "Late"
+#ensuite les echantillons ou Day est superieur a 100 on leur affectent Late
+
 rownames(samdf) <- samples.out
 print(samdf)
 ```
@@ -610,13 +760,24 @@ print(samdf)
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
                sample_data(samdf), 
                tax_table(taxa))
+#creation d'une table qui contient les OTU avec otu_table 
+#sample_data(samdf)  creation d'une table de donnees a partir des informations contenues dans samdf sur le sujet genre et jour d'echantillonnage
+#tax_table(taxa) creation d'une table taxonomique a partir de l'objet taxa qui contient les information taxonomiques sur chaque otu ou asv
+
 ps <- prune_samples(sample_names(ps) != "Mock", ps)  
+#pour eliminer les echantillons mock qui represente seuelement un controle,,, on se concentre seulement sur les echantillons reels
 ```
 
 ``` r
 dna <- Biostrings::DNAStringSet(taxa_names(ps))
+#taxa_names(ps) extraction des noms de taxa de l'objet phyloseq 
+#Biostrings::DNAStringSet  pour convertir les fichiers en sequences d'adn???
+
 names(dna) <- taxa_names(ps)
+#attribution des noms de taxa aux noms des seq d'adn dans l'objet dna
 ps <- merge_phyloseq(ps, dna)
+#pour fusionner les seq d'adn dans dna avec les informations sur l'abondance, la taxonomie et les donnees sur les echantillons
+
 taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
 ps
 ```
@@ -626,6 +787,15 @@ ps
     ## sample_data() Sample Data:       [ 19 samples by 4 sample variables ]
     ## tax_table()   Taxonomy Table:    [ 232 taxa by 6 taxonomic ranks ]
     ## refseq()      DNAStringSet:      [ 232 reference sequences ]
+
+``` r
+#juste en appelant ps ca va nous afficher une representation de l'objet phyloseq dans la console 
+
+#resultats:
+#232 taxa et 19 echantillons donc il a trouvé 232 AVS ou OTU dans notre 19 echantillons(il a eliminé le mock)
+#19 echantillons et 4 sample variables; on parle des variables etudies comme le jour d'echantillonage, le sexe le sujet et le jour
+#232 taxa by 6 taxonomic ranks pour les 232 ASV on va faire une classification taxonomique sur 6 niveaux = domaine phylum classe ordre famille genre espece
+```
 
 ``` r
 plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
@@ -641,43 +811,67 @@ plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
 ![](tuto-complet_files/figure-gfm/unnamed-chunk-33-1.png)<!-- -->
 
 ``` r
+#plotrichness va nous produire un graphe
+#x=Day va affecter au axe des x la variable Day  donc cela vous nous permettre d'explorer comment la diveristé varie en fonction des jours
+#mesures=c(shannon,simpson)  c'est les mesures de diversites
+#Shannon >>> index de shannon est une mesure qui prend en compte le nombre d'especes et leur repartition une index plus eleve indique une diversité plus grande
+#Simpson >>> index de simpson mesure la probabilté que deux individus pris au hasard dans un echantillon appartiennent a la meme espece une valeur plus faible indique une diversité plus grande
+
+#color when pour colorer les points en fonction de when est ce que early ou late
+
+#donc chaque point est coloré selon le when early or late,,, les variations sur l'axe des y indiqueront les differnces de richesse et de diversité entre les echantillons en fonction des jours et des moments
+```
+
+``` r
 ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
+#transformation des donnees #function(otu) otu/sum(otu) cette fonction va normaliser les abondances de chaque taxon en divisant par la somme des abondance dans l'echantillon ce qui transforme les donnes en proportions
+#apres la transformation chaque valeur represente la proportion d'un taxon par rapport au total de taxa dans l'echantillon
+
 ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
 ```
 
     ## Run 0 stress 0.08043117 
-    ## Run 1 stress 0.08616061 
-    ## Run 2 stress 0.1262108 
-    ## Run 3 stress 0.08076337 
-    ## ... Procrustes: rmse 0.01052122  max resid 0.03238393 
+    ## Run 1 stress 0.3747385 
+    ## Run 2 stress 0.08616061 
+    ## Run 3 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01053457  max resid 0.03242804 
     ## Run 4 stress 0.08076337 
-    ## ... Procrustes: rmse 0.01051716  max resid 0.03237068 
-    ## Run 5 stress 0.08076337 
-    ## ... Procrustes: rmse 0.01050049  max resid 0.03231634 
-    ## Run 6 stress 0.1010633 
-    ## Run 7 stress 0.1212044 
-    ## Run 8 stress 0.08616061 
+    ## ... Procrustes: rmse 0.01050794  max resid 0.03234072 
+    ## Run 5 stress 0.09477212 
+    ## Run 6 stress 0.08616061 
+    ## Run 7 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01052337  max resid 0.0323908 
+    ## Run 8 stress 0.08076337 
+    ## ... Procrustes: rmse 0.01049765  max resid 0.0323071 
     ## Run 9 stress 0.08616061 
-    ## Run 10 stress 0.1228545 
-    ## Run 11 stress 0.08043116 
-    ## ... New best solution
-    ## ... Procrustes: rmse 2.622475e-06  max resid 5.98455e-06 
+    ## Run 10 stress 0.1274326 
+    ## Run 11 stress 0.1212044 
+    ## Run 12 stress 0.08043117 
+    ## ... Procrustes: rmse 1.44356e-06  max resid 3.618734e-06 
     ## ... Similar to previous best
-    ## Run 12 stress 0.08616061 
-    ## Run 13 stress 0.08076339 
-    ## ... Procrustes: rmse 0.01053091  max resid 0.03241421 
-    ## Run 14 stress 0.08616061 
-    ## Run 15 stress 0.08043117 
-    ## ... Procrustes: rmse 2.190657e-06  max resid 4.490441e-06 
-    ## ... Similar to previous best
+    ## Run 13 stress 0.08616061 
+    ## Run 14 stress 0.08076339 
+    ## ... Procrustes: rmse 0.01054859  max resid 0.03247321 
+    ## Run 15 stress 0.0807634 
+    ## ... Procrustes: rmse 0.01054499  max resid 0.03246152 
     ## Run 16 stress 0.08076337 
-    ## ... Procrustes: rmse 0.01051473  max resid 0.03236178 
-    ## Run 17 stress 0.08616061 
-    ## Run 18 stress 0.08076341 
-    ## ... Procrustes: rmse 0.01057635  max resid 0.03256235 
-    ## Run 19 stress 0.1274325 
-    ## Run 20 stress 0.08616061 
-    ## *** Best solution repeated 2 times
+    ## ... Procrustes: rmse 0.01048672  max resid 0.03227109 
+    ## Run 17 stress 0.08076338 
+    ## ... Procrustes: rmse 0.01051844  max resid 0.03237438 
+    ## Run 18 stress 0.08616061 
+    ## Run 19 stress 0.09477186 
+    ## Run 20 stress 0.1212044 
+    ## *** Best solution repeated 1 times
+
+``` r
+#cette fonction va realiser une analyse d'ordination sur l'objet phyloseq
+
+#method="NMDS" une methode NMDS couramment utilisee pour reduire la dimensionnalité des donnes ecologiques tt en preservant les relations de similarite entre les echantillons
+#la multidimensionnalité c"est lorsq"on a plusieurs variables
+#l'objectif d"une analyse d'ordination est de representer les donnes complexes dans un espace de dimension inferieure tout en preservant les relations de similarité ou de dissimilarité entre les objets
+
+#distance="bray"  cela indique que la distance Bray Curtis va etre utilise pour calculer la dissimilarité entre les echantillons 
+```
 
 ``` r
 plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
@@ -686,10 +880,30 @@ plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
 ![](tuto-complet_files/figure-gfm/unnamed-chunk-35-1.png)<!-- -->
 
 ``` r
+#la proximité entre les points indique la similarite de leur composition
+```
+
+``` r
+#on veut visualiser les 20 taxa les plus abondants dans nos echantillons en fonction de la variable Day
+
 top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
+#taxa_sums(ps)  pour calculer les sommes des abondance de chaque taxa
+#decreasing=TRUE  les resultast sont ensuite tries selon l'abondance decroissante
+#names(...)[1:20] pour extraire les 20 taxa les plus abondants
 ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
+#normalisation des abondances en proportion pour rendre meilleure la visualtions
 ps.top20 <- prune_taxa(top20, ps.top20)
+#pour garder que les 20 taxa les plus abondants et eliminer les autres
 plot_bar(ps.top20, x="Day", fill="Family") + facet_wrap(~When, scales="free_x")
 ```
 
 ![](tuto-complet_files/figure-gfm/unnamed-chunk-36-1.png)<!-- -->
+
+``` r
+#plot_bar(ps.top20, x="Day", fill="Family")  cette fonction genere un graphique sous forme de bar
+
+# l'axe des x represente Day et les barres sont colores selon les failles
+#facet_wrap(~When, scales="free_x")  cette fonction va creer des sous graphes pour chaque niv de variable when  et l'arguement scales="free_x" va generer a chaque sous graphe son axe des x 
+
+#a partir de ces sous graphes on peut bien observer la difference entre les communautes selon le jour et le moment de collecte et cela pourra nous aider a identifier des changements dans la composition des familles au fil du temps
+```
